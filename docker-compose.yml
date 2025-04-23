@@ -1,63 +1,48 @@
+version: '3.8'
 
-services: 
-
-  estacoes:
-    container_name: estacoes
-    build: 
-      context: .
-      dockerfile: back/Dockerfile
-    volumes:
-      - ./back:/back:delegated
-    ports:
-      - 8021:8021
-    env_file:
-      - .env.dev
-    # links:
-      # - redis_base
-    depends_on:
-      - db_estacoes
-
-  db_estacoes: 
-    container_name: db_estacoes
-    image: postgres:14.0-alpine
-    volumes: 
-      - ./postgres_data:/var/lib/postgresql/data/
-    ports:
-      - 5071:5071
-    env_file:
-      - .env.dev
-    command: -p 5071
-
-  # redis_base:
-  #   container_name: redis_base
-  #   image: 'redis:latest'
-  #   ports:
-  #     - '6383:6383'
-  #   command: redis-server --port 6383 --requirepass BlEnEvOlferOInElTaRYMiTrisMATi
-  #   volumes: 
-  #     - ./redis_base_data:/data
-
-
-  front_estacoes: 
-    container_name: front_estacoes
+services:
+  # Frontend (React)
+  snapbox:
+    container_name: snapbox
     restart: always
-    # command: npm start
     build:
       context: .
       dockerfile: front/Dockerfile
-    environment:  
+    environment:
       CHOKIDAR_USEPOLLING: true
     ports:
-      - "3011:3011"
+      - "3000:3000"
     volumes:
       - ./front:/front
-      - '/front/node_modules'
     env_file:
-      - .env.dev
+      - ./front/.env.dev  # ✅ caminho ajustado
 
+  # Banco de Dados (PostgreSQL)
+  db_snapbox:
+    container_name: db_snapbox
+    image: postgres:14.0-alpine
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./back/.env.dev  # ✅ ou crie um .env específico para o banco
+    command: postgres
+
+  # Backend (Express)
+  back:
+    container_name: back
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    ports:
+      - "3010:3010"
+    env_file:
+      - ./back/.env.dev  # ✅ caminho ajustado
+    volumes:
+      - ./back:/back
+    depends_on:
+      - db_snapbox
 
 volumes:
-  postgres_data:
-    driver: local
-  redis_base:
-    driver: local
+  front:

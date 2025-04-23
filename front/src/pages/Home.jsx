@@ -51,9 +51,6 @@ const Home = () => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ background: '#001529', padding: '0 24px' }}>
-        <Title level={3} style={{ color: '#fff', margin: '16px 0' }}>SnapBox</Title>
-      </Header>
 
       <Content style={{ padding: '24px' }}>
         <Card title="Upload de Arquivo" style={{ marginBottom: 24 }}>
@@ -62,7 +59,7 @@ const Home = () => {
             onChange={({ fileList }) => setFileList(fileList)}
             multiple
             accept="image/*,video/*"
-            beforeUpload={() => false} // Impede que o upload seja feito automaticamente
+            beforeUpload={() => false} 
           >
             <Button icon={<UploadOutlined />}>Selecionar Arquivo(s)</Button>
           </Upload>

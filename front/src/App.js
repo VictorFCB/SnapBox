@@ -1,11 +1,17 @@
-import './App.css';
-import Home from './pages/Home/Home';
+import React from 'react';
+import AppHeader from './components/AppHeader';
+import AppRoutes from './router/AppRouter';
+import { BrowserRouter } from 'react-router-dom'; 
 
-function App() {
+const App = () => {
   return (
-    <div className="App">
-     < Home />
+    <BrowserRouter>
+    <AppHeader />
+    <div style={{ paddingTop: '64px' }}>
+      <AppRoutes />
     </div>
+  </BrowserRouter>
+  
   );
 }
 

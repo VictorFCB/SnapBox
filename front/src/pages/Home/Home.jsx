@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Button, Layout, Typography, Card, Row, Col, Image, Popconfirm } from 'antd';
+import { Upload, Button, Layout, Typography, Card, Row, Col, Image, Popconfirm, message } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3010';
+const API_URL = process.env.REACT_APP_API_URL ;
 
 const Home = () => {
   const [fileList, setFileList] = useState([]);
@@ -20,17 +20,24 @@ const Home = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!fileList.length) return;
-    
+
+    for (const item of fileList) {
+      const file = item.originFileObj;
+      uploadSingleFile(file);
+    }
+
+    setFileList([]);
+  };
+
+  const uploadSingleFile = (file) => {
     const formData = new FormData();
-    formData.append('file', fileList[0].originFileObj);
+    formData.append('file', file);
 
     axios.post(`${API_URL}/upload`, formData)
-      .then(({ data }) => {
-        setFiles([data, ...files]);
-        setFileList([]);
-      });
+      .then(({ data }) => setFiles(prev => [data, ...prev]))
+      .catch(() => message.error('Erro ao enviar um dos arquivos.'));
   };
 
   const handleDelete = (fileId, filePath) => {
@@ -47,22 +54,22 @@ const Home = () => {
       <Header style={{ background: '#001529', padding: '0 24px' }}>
         <Title level={3} style={{ color: '#fff', margin: '16px 0' }}>SnapBox</Title>
       </Header>
-      
+
       <Content style={{ padding: '24px' }}>
         <Card title="Upload de Arquivo" style={{ marginBottom: 24 }}>
           <Upload
             fileList={fileList}
             onChange={({ fileList }) => setFileList(fileList)}
-            maxCount={1}
+            multiple
             accept="image/*,video/*"
-            beforeUpload={() => false}
+            beforeUpload={() => false} // Impede que o upload seja feito automaticamente
           >
-            <Button icon={<UploadOutlined />}>Selecionar Arquivo</Button>
+            <Button icon={<UploadOutlined />}>Selecionar Arquivo(s)</Button>
           </Upload>
-          
+
           {fileList.length > 0 && (
             <Button type="primary" onClick={handleUpload} style={{ marginTop: 16 }}>
-              Enviar Arquivo
+              Enviar Arquivo(s)
             </Button>
           )}
         </Card>
@@ -98,7 +105,7 @@ const Home = () => {
           </Row>
         </Card>
       </Content>
-      
+
       <Footer style={{ textAlign: 'center' }}>SnapBox © {new Date().getFullYear()}</Footer>
     </Layout>
   );

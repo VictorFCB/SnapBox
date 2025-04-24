@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input, Button, Row, Col, Card, message, Select } from 'antd';
 import axios from 'axios';
 
@@ -8,7 +8,25 @@ const Email = () => {
   const [emails, setEmails] = useState([]);
   const [htmlContent, setHtmlContent] = useState('');
   const [loading, setLoading] = useState(false);
+  const [arquivos, setArquivos] = useState([]);
 
+  useEffect(() => {
+    axios.get(`${process.env.REACT_APP_API_URL}/files`)
+      .then(({ data }) => setArquivos(data))
+      .catch(() => message.error('Erro ao carregar imagens'));
+  }, []);
+
+  const trocarImagensNoHtml = () => {
+    const novaHtml = htmlContent.replace(/src="images\/([^"]+)"/g, (match, fileName) => {
+      const imagem = arquivos.find(arq => arq.name === fileName);
+      return imagem ? `src="${imagem.url}"` : match;
+    });
+
+    setHtmlContent(novaHtml);
+    message.success('Imagens atualizadas com sucesso!');
+  };
+
+  // Enviar email
   const handleSend = async () => {
     if (!emails.length || !htmlContent) {
       message.warning('Preencha todos os campos!');
@@ -57,14 +75,27 @@ const Email = () => {
             onChange={(e) => setHtmlContent(e.target.value)}
             style={{ marginBottom: 16 }}
           />
-          <Button
-            type="primary"
-            onClick={handleSend}
-            loading={loading}
-            disabled={!emails.length || !htmlContent}
-          >
-            Enviar Email
-          </Button>
+
+          <Row gutter={8}>
+            <Col>
+              <Button
+                onClick={trocarImagensNoHtml}
+                disabled={!arquivos.length || !htmlContent}
+              >
+                Trocar Imagens
+              </Button>
+            </Col>
+            <Col>
+              <Button
+                type="primary"
+                onClick={handleSend}
+                loading={loading}
+                disabled={!emails.length || !htmlContent}
+              >
+                Enviar Email
+              </Button>
+            </Col>
+          </Row>
         </Card>
       </Col>
     </Row>

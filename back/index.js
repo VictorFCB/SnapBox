@@ -49,6 +49,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     const fileExt = originalname.split('.').pop();
     const fileName = `${uuidv4()}.${fileExt}`;
 
+    // Fazendo upload para o Supabase
     const { error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(`public/${fileName}`, buffer, {
@@ -58,16 +59,20 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
     if (uploadError) throw uploadError;
 
+    // Obtendo URL pública do arquivo
     const { data: { publicUrl } } = supabase.storage
       .from(BUCKET_NAME)
       .getPublicUrl(`public/${fileName}`);
 
+    console.log('URL pública do arquivo:', publicUrl);  // Log da URL gerada
+
+    // Inserindo no banco de dados
     const { data, error: dbError } = await supabase
       .from('uploads')
       .insert([{
         name: originalname,
         path: `public/${fileName}`,
-        url: publicUrl,
+        url: publicUrl,  // Certificando-se de que a URL está sendo salva
         mimetype,
         size: req.file.size
       }])
@@ -117,8 +122,6 @@ app.post('/send-email', async (req, res) => {
   }
 
   try {
-    console.log('Iniciando o envio de email');
-
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
       port: Number(process.env.EMAIL_PORT),
@@ -129,16 +132,13 @@ app.post('/send-email', async (req, res) => {
       },
     });
 
-    console.log('Transporter configurado');
-
     const info = await transporter.sendMail({
       from: `"SnapBox" <${process.env.EMAIL_USER}>`,
       to: Array.isArray(to) ? to.join(',') : to,
-      subject: 'Mensagem via SnapBox 📦',
+      subject: 'Software desenvolvido pela FCB Health',
       html,
     });
 
-    console.log('Email enviado:', info.messageId);
     res.status(200).json({ success: true, messageId: info.messageId });
   } catch (error) {
     console.error('Erro ao enviar email:', error);

@@ -6,7 +6,7 @@ import axios from 'axios';
 const { Header, Content, Footer } = Layout;
 const { Title, Text } = Typography;
 
-const API_URL = process.env.REACT_APP_API_URL ;
+const API_URL = process.env.REACT_APP_API_URL;
 
 const Home = () => {
   const [fileList, setFileList] = useState([]);
@@ -16,7 +16,10 @@ const Home = () => {
 
   useEffect(() => {
     axios.get(`${API_URL}/files`)
-      .then(({ data }) => setFiles(data))
+      .then(({ data }) => {
+        console.log('Arquivos retornados da API:', data);  // Verifique os dados aqui
+        setFiles(data);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -36,7 +39,10 @@ const Home = () => {
     formData.append('file', file);
 
     axios.post(`${API_URL}/upload`, formData)
-      .then(({ data }) => setFiles(prev => [data, ...prev]))
+      .then(({ data }) => {
+        console.log('Arquivo enviado com sucesso:', data);
+        setFiles(prev => [data, ...prev]);
+      })
       .catch(() => message.error('Erro ao enviar um dos arquivos.'));
   };
 

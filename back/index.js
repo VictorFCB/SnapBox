@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import supabase from './supabase.js';
 import dotenv from 'dotenv';
 
+
 dotenv.config({ path: '.env.dev' });
 
 const app = express();
@@ -24,6 +25,134 @@ const upload = multer({
     cb(null, allowedTypes.includes(file.mimetype));
   }
 });
+
+app.post('/parametrize-url', upload.single('image'), async (req, res) => {
+  try {
+    // Receber a URL base e os parâmetros
+    const { baseUrl, params } = req.body;
+
+    // Parse a string JSON para objeto
+    const paramsObj = JSON.parse(params);
+
+    console.log('Base URL:', baseUrl);
+    console.log('Parâmetros:', paramsObj);
+
+    res.json({ parametrizedUrl: baseUrl + '?' + new URLSearchParams(paramsObj).toString() });
+  } catch (error) {
+    console.error('Erro ao processar a solicitação:', error);
+    res.status(400).json({ error: 'Erro ao parametrizar a URL' });
+  }
+});
+
+// Rota para salvar URL na tabela urls_snapbox
+app.post('/save-url', async (req, res) => {
+  try {
+    const { name, url, image } = req.body;
+
+    // Verifica se os campos obrigatórios estão presentes
+    if (!name || !url) {
+      return res.status(400).json({ error: 'Nome e URL são obrigatórios' });
+    }
+
+    // Gerando o UUID manualmente no backend
+    const id = uuidv4();
+
+    // Inserir dados na tabela urls_snapbox com o UUID gerado
+    const { data, error } = await supabase
+      .from('urls_snapbox')
+      .insert([
+        {
+          id: id,  // Passando o UUID gerado para o campo id
+          name: name,
+          url: url,
+          image: image || null,  // Imagem é opcional
+        }
+      ])
+      .select(); // Isso garante que os dados inseridos (incluindo o UUID) sejam retornados
+
+    if (error) {
+      console.error('Erro ao salvar URL no Supabase:', error);
+      return res.status(500).json({ error: 'Erro ao salvar URL no banco de dados' });
+    }
+
+    // Retorna os dados inseridos, incluindo o UUID gerado manualmente
+    res.status(201).json({
+      ...data[0],  // Inclui todos os dados retornados (incluindo o UUID)
+      id: id       // Garante que o UUID gerado apareça explicitamente
+    });
+  } catch (error) {
+    console.error('Erro ao salvar URL:', error);
+    res.status(500).json({ error: 'Erro ao salvar URL' });
+  }
+});
+
+// Atualizar nome da campanha
+app.put('/urls/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Nome é obrigatório.' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('urls_snapbox')
+      .update({ name })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      console.error('Erro ao atualizar nome:', error);
+      return res.status(500).json({ error: 'Erro ao atualizar nome da campanha.' });
+    }
+
+    res.status(200).json(data[0]);
+  } catch (err) {
+    console.error('Erro:', err);
+    res.status(500).json({ error: 'Erro interno do servidor.' });
+  }
+});
+
+
+// Rota para buscar URLs salvas
+app.get('/urls', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('urls_snapbox')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar URLs salvas:', error);
+      return res.status(500).json({ error: 'Erro ao buscar URLs' });
+    }
+
+    res.status(200).json(data);
+  } catch (err) {
+    console.error('Erro geral ao buscar URLs:', err);
+    res.status(500).json({ error: 'Erro ao buscar URLs' });
+  }
+});
+
+
+// Rota para deletar uma URL salva
+app.delete('/urls/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const { error } = await supabase
+    .from('urls_snapbox')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Erro ao excluir URL:', error);
+    return res.status(500).json({ error: 'Erro ao excluir a URL' });
+  }
+
+  res.status(200).json({ success: true });
+});
+
 
 // Listar arquivos
 app.get('/files', async (req, res) => {

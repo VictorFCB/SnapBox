@@ -11,6 +11,7 @@ const AppHeader = () => {
   const getMenuKey = () => {
     if (location.pathname === '/') return 'home';
     if (location.pathname.startsWith('/Email')) return 'send';
+    if (location.pathname.startsWith('/UrlParametrizer')) return 'Parametrizer';
     return '';
   };
 
@@ -39,6 +40,9 @@ const AppHeader = () => {
             </Menu.Item>
             <Menu.Item key="send">
               <Link to="/Email">Send</Link>
+            </Menu.Item>
+            <Menu.Item key="Parametrizer">
+              <Link to="/UrlParametrizer">Parametrizer</Link>
             </Menu.Item>
           </Menu>
         </Col>

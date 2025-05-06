@@ -16,6 +16,39 @@ const BUCKET_NAME = 'images';
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json());
 
+// Rota para login
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
+  }
+
+  try {
+    // Tente usar a função de login do Supabase para autenticação
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      // Se houver erro no login, retorne o erro para o cliente
+      return res.status(401).json({ error: 'Email ou senha incorretos.' });
+    }
+
+    // Se o login for bem-sucedido, retorne a sessão e os dados do usuário
+    res.status(200).json({
+      message: 'Login bem-sucedido!',
+      session: data.session,  // Retorne a sessão aqui
+      user: data.user,        // Retorne os dados do usuário
+    });
+  } catch (error) {
+    console.error('Erro ao autenticar usuário:', error);
+    res.status(500).json({ error: 'Erro interno do servidor.' });
+  }
+});
+
+
 // Configuração do Multer para upload de arquivos
 const upload = multer({
   storage: multer.memoryStorage(),

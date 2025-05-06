@@ -3,10 +3,16 @@ import { Upload, Button, Layout, Typography, Card, Row, Col, Image, Popconfirm, 
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
-const { Header, Content, Footer } = Layout;
+const { Content, Footer } = Layout;
 const { Title, Text } = Typography;
 
 const API_URL = process.env.REACT_APP_API_URL;
+
+const handleApiError = (error, defaultMessage) => {
+  console.error(error);
+  message.error(defaultMessage);
+  return null;
+};
 
 const Home = () => {
   const [fileList, setFileList] = useState([]);
@@ -15,49 +21,81 @@ const Home = () => {
   const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
-    axios.get(`${API_URL}/files`)
-      .then(({ data }) => {
-        console.log('Arquivos retornados da API:', data);  // Verifique os dados aqui
-        setFiles(data);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    const fetchFiles = async () => {
+      const response = await axios.get(`${API_URL}/files`)
+        .catch(error => handleApiError(error, 'Erro ao carregar arquivos'));
+      
+      if (response) {
+        setFiles(response.data);
+      }
+      setLoading(false);
+    };
 
-  const handleUpload = async () => {
+    fetchFiles();
+  }, [API_URL]);
+
+  const handleUpload = () => {
     if (!fileList.length) return;
 
-    for (const item of fileList) {
+    fileList.forEach(item => {
       const file = item.originFileObj;
       uploadSingleFile(file);
-    }
+    });
 
     setFileList([]);
   };
 
-  const uploadSingleFile = (file) => {
+  const uploadSingleFile = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    axios.post(`${API_URL}/upload`, formData)
-      .then(({ data }) => {
-        console.log('Arquivo enviado com sucesso:', data);
-        setFiles(prev => [data, ...prev]);
-      })
-      .catch(() => message.error('Erro ao enviar um dos arquivos.'));
+    const response = await axios.post(`${API_URL}/upload`, formData)
+      .catch(() => message.error('Erro ao enviar arquivo.'));
+    
+    if (response) {
+      setFiles(prev => [response.data, ...prev]);
+    }
   };
 
-  const handleDelete = (fileId, filePath) => {
+  const handleDelete = async (fileId, filePath) => {
     setDeletingId(fileId);
-    axios.delete(`${API_URL}/files/${fileId}`, { data: { path: filePath } })
-      .then(() => setFiles(files.filter(file => file.id !== fileId)))
-      .finally(() => setDeletingId(null));
+    
+    const response = await axios.delete(`${API_URL}/files/${fileId}`, { data: { path: filePath } })
+      .catch(error => handleApiError(error, 'Erro ao excluir arquivo'));
+    
+    if (response) {
+      setFiles(files.filter(file => file.id !== fileId));
+    }
+    setDeletingId(null);
   };
 
   const isVideo = (file) => file.mimetype?.startsWith('video/') || file.url?.endsWith('.mp4');
 
-  return (
-    <Layout style={{ minHeight: '100vh' }}>
+  const renderFileCard = (file) => (
+    <Col key={file.id} xs={24} sm={12} md={8} lg={6}>
+      <Card
+        hoverable
+        cover={isVideo(file) ? (
+          <video controls style={{ width: '100%', height: '160px', objectFit: 'cover' }} src={file.url} />
+        ) : (
+          <Image src={file.url} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+        )}
+        actions={[
+          <Popconfirm
+            title="Excluir arquivo?"
+            onConfirm={() => handleDelete(file.id, file.path)}
+          >
+            <Button danger icon={<DeleteOutlined />} loading={deletingId === file.id} />
+          </Popconfirm>
+        ]}
+      >
+        <Card.Meta title={file.name} description={`${Math.round(file.size / 1024)} KB`} />
+      </Card>
+    </Col>
+  );
 
+  return (
+    <Layout>
       <Content style={{ padding: '24px' }}>
         <Card title="Upload de Arquivo" style={{ marginBottom: 24 }}>
           <Upload
@@ -79,28 +117,7 @@ const Home = () => {
 
         <Card title="Arquivos Disponíveis" loading={loading}>
           <Row gutter={[16, 16]}>
-            {files.length > 0 ? files.map(file => (
-              <Col key={file.id} xs={24} sm={12} md={8} lg={6}>
-                <Card
-                  hoverable
-                  cover={isVideo(file) ? (
-                    <video controls style={{ width: '100%', height: '160px', objectFit: 'cover' }} src={file.url} />
-                  ) : (
-                    <Image src={file.url} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
-                  )}
-                  actions={[
-                    <Popconfirm
-                      title="Excluir arquivo?"
-                      onConfirm={() => handleDelete(file.id, file.path)}
-                    >
-                      <Button danger icon={<DeleteOutlined />} loading={deletingId === file.id} />
-                    </Popconfirm>
-                  ]}
-                >
-                  <Card.Meta title={file.name} description={`${Math.round(file.size / 1024)} KB`} />
-                </Card>
-              </Col>
-            )) : (
+            {files.length > 0 ? files.map(renderFileCard) : (
               <Text type="secondary" style={{ display: 'block', textAlign: 'center', width: '100%' }}>
                 Nenhum arquivo encontrado
               </Text>

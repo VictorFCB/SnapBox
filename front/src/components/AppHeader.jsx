@@ -9,7 +9,8 @@ const AppHeader = () => {
   const location = useLocation();
 
   const getMenuKey = () => {
-    if (location.pathname === '/') return 'home';
+    if (location.pathname === '/') return 'login';
+    if (location.pathname === '/Home') return 'home';
     if (location.pathname.startsWith('/Email')) return 'send';
     if (location.pathname.startsWith('/UrlParametrizer')) return 'Parametrizer';
     return '';
@@ -28,15 +29,17 @@ const AppHeader = () => {
     >
       <Row justify="space-between" align="middle">
         <Col>
-          <Title level={3} style={{ color: '#fff', margin: 0 }}>
-            SnapBox
-          </Title>
+          <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>
+            <Title level={3} style={{ color: '#fff', margin: 0 }}>
+              SnapBox
+            </Title>
+          </Link>
         </Col>
 
         <Col>
           <Menu theme="dark" mode="horizontal" selectedKeys={[getMenuKey()]}>
             <Menu.Item key="home">
-              <Link to="/">Home</Link>
+              <Link to="/Home">Home</Link>
             </Menu.Item>
             <Menu.Item key="send">
               <Link to="/Email">Send</Link>

@@ -13,21 +13,25 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./front:/front
+      - ./front:/app  # Alterei o volume para /app, que é o diretório padrão do container
     env_file:
-      - ./front/.env.dev  # ✅ caminho ajustado
+      - ./front/.env.dev  
 
   # Banco de Dados (PostgreSQL)
   db_snapbox:
     container_name: db_snapbox
     image: postgres:14.0-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: snapbox  # Nome do banco a ser criado
     volumes:
       - ./postgres_data:/var/lib/postgresql/data/
     ports:
       - "5432:5432"
     env_file:
-      - ./back/.env.dev  # ✅ ou crie um .env específico para o banco
-    command: postgres
+      - ./back/.env.dev  # O .env.dev do back-end, que inclui as variáveis de banco de dados
+    # Removi o comando 'postgres', pois a imagem do PostgreSQL já inicializa automaticamente
 
   # Backend (Express)
   back:
@@ -38,9 +42,9 @@ services:
     ports:
       - "3010:3010"
     env_file:
-      - ./back/.env.dev  # ✅ caminho ajustado
+      - ./back/.env.dev  
     volumes:
-      - ./back:/back
+      - ./back:/app  # Alterei o volume para /app, que é o diretório padrão do container
     depends_on:
       - db_snapbox
 

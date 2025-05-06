@@ -17,7 +17,7 @@ services:
     env_file:
       - ./front/.env.dev  
 
-  # Banco de Dados (PostgreSQL)
+  # Banco de Dados (PostgreSQL))
   db_snapbox:
     container_name: db_snapbox
     image: postgres:14.0-alpine

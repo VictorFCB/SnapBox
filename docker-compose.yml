@@ -6,18 +6,18 @@ services:
     container_name: snapbox
     restart: always
     build:
-      context: .
-      dockerfile: front/Dockerfile
+      context: ./front
+      dockerfile: Dockerfile  # Aponta corretamente para o Dockerfile dentro de front
     environment:
       CHOKIDAR_USEPOLLING: true
     ports:
       - "3000:3000"
     volumes:
-      - ./front:/app  # Alterei o volume para /app, que é o diretório padrão do container
+      - ./front:/app  # O diretório 'front' será mapeado como /app no container
     env_file:
-      - ./front/.env.dev  
+      - ./front/.env.dev  # Variáveis de ambiente do frontend
 
-  # Banco de Dados (PostgreSQL))
+  # Banco de Dados (PostgreSQL)
   db_snapbox:
     container_name: db_snapbox
     image: postgres:14.0-alpine
@@ -26,27 +26,27 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: snapbox  # Nome do banco a ser criado
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data/
+      - ./postgres_data:/var/lib/postgresql/data/  # Dados persistentes
     ports:
       - "5432:5432"
     env_file:
-      - ./back/.env.dev  # O .env.dev do back-end, que inclui as variáveis de banco de dados
-    # Removi o comando 'postgres', pois a imagem do PostgreSQL já inicializa automaticamente
+      - ./back/.env.dev  # Variáveis de ambiente para o banco (por exemplo, URL do banco)
+    command: postgres
 
-  # Backend (Express)
+  # Backend (Node)
   back:
     container_name: back
     build:
-      context: ./back
-      dockerfile: Dockerfile
+      context: ./back  # Aponta corretamente para o diretório 'back'
+      dockerfile: Dockerfile  # Aponta para o Dockerfile dentro do diretório 'back'
     ports:
       - "3010:3010"
     env_file:
-      - ./back/.env.dev  
+      - ./back/.env.dev  # Variáveis de ambiente para o backend
     volumes:
-      - ./back:/app  # Alterei o volume para /app, que é o diretório padrão do container
+      - ./back:/app  # O diretório 'back' será mapeado como /app no container
     depends_on:
-      - db_snapbox
+      - db_snapbox  # O backend depende do banco de dados
 
 volumes:
-  front:
+  front:  # Volume para o frontend (se necessário, você pode excluir)

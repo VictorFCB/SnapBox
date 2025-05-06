@@ -1,20 +1,21 @@
-# Usar uma imagem base do Node.js
+# Usando a imagem oficial do Node.js
 FROM node:22-alpine3.20
 
 # Definir o diretório de trabalho dentro do container
-WORKDIR /front
+WORKDIR /app
 
-# Copiar os arquivos de dependências para o diretório de trabalho
-COPY ./front/package.json ./front/package-lock.json ./
+# Copiar os arquivos de package.json e package-lock.json para o container
+COPY ./package.json ./package-lock.json ./
 
 # Instalar as dependências
 RUN npm install
 
-# Copiar todo o conteúdo do diretório front para dentro do container
-COPY ./front/ /front/
+# Copiar o código fonte e arquivos estáticos para o container
+COPY ./src ./src
+COPY ./public ./public 
 
-# Expor a porta do frontend
+# Expor a porta 3000 (padrão do React)
 EXPOSE 3000
 
-# Rodar a aplicação React
+# Comando para rodar o servidor React
 CMD ["npm", "start"]

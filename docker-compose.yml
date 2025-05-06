@@ -7,7 +7,7 @@ services:
     restart: always
     build:
       context: ./front
-      dockerfile: ./Dockerfile  # Aponta corretamente para o Dockerfile dentro de front
+      dockerfile: Dockerfile  # Aponta corretamente para o Dockerfile dentro de front
     environment:
       CHOKIDAR_USEPOLLING: true
     ports:
@@ -38,7 +38,7 @@ services:
     container_name: back
     build:
       context: ./back  # Aponta corretamente para o diretório 'back'
-      dockerfile: ./Dockerfile  # Aponta para o Dockerfile dentro do diretório 'back'
+      dockerfile: Dockerfile  # Aponta para o Dockerfile dentro do diretório 'back'
     ports:
       - "3010:3010"
     env_file:

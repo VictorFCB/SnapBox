@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import supabase from './supabase.js';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 
 
 dotenv.config({ path: '.env.dev' });
@@ -13,7 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3010;
 const BUCKET_NAME = 'images';
 
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
+app.use(cors({ origin: process.env.FRONTEND_URL}));
 app.use(express.json());
 
 // Rota para login
@@ -44,6 +45,63 @@ app.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Erro ao autenticar usuário:', error);
+    res.status(500).json({ error: 'Erro interno do servidor.' });
+  }
+});
+
+// Rota de registro
+app.post('/register', async (req, res) => {
+  const { name, email, password } = req.body;
+
+  console.log('Body recebido no backend:', req.body);  // Verifique o conteúdo do corpo
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: 'Nome, email e senha são obrigatórios.' });
+  }
+
+  try {
+    // Cria o usuário no Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      console.error('Erro ao criar usuário no Supabase Auth:', error);
+      return res.status(400).json({ error: error.message || 'Erro ao criar usuário no Supabase Auth.' });
+    }
+
+    console.log('Usuário criado no Supabase Auth:', data.user);
+
+    // Cria o registro do usuário na tabela 'users' após o cadastro no Supabase Auth
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert([
+        {
+          id: uuidv4(),            // Gerando UUID para o novo usuário
+          name,
+          email,
+          user_id: data.user.id,   // Referência ao user_id do Supabase Auth
+        },
+      ]);
+
+    if (insertError) {
+      console.error('Erro ao salvar usuário na tabela users:', insertError);
+      return res.status(500).json({ error: 'Erro ao salvar usuário no banco de dados.' });
+    }
+
+    // Se tudo ocorreu bem, envia a resposta de sucesso
+    res.status(201).json({
+      message: 'Cadastro bem-sucedido!',
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        name,
+      },
+      session: data.session,
+    });
+  } catch (error) {
+    console.error('Erro no processo de registro:', error);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 });
@@ -223,8 +281,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
     // Obtendo URL pública do arquivo
     const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(`public/${fileName}`);
+    .from(BUCKET_NAME)
+    .getPublicUrl(`public/${fileName}`);
 
     console.log('URL pública do arquivo:', publicUrl);  // Log da URL gerada
 

@@ -41,7 +41,7 @@ const UrlParametrizer = () => {
 
   useEffect(() => {
     const fetchSavedUrls = async () => {
-      const response = await axios.get(`${API_URL}/urls`).catch(error => 
+      const response = await axios.get(`${API_URL}/urls`).catch(error =>
         handleApiError(error, 'Erro ao buscar URLs salvas')
       );
       if (response) setSavedUrls(response.data);
@@ -178,7 +178,7 @@ const UrlParametrizer = () => {
                 onChange={(e) => setNewCampaignName(e.target.value)}
                 onKeyDown={handleEditCampaignName}
                 autoFocus
-                onClick={(e) => e.stopPropagation()} 
+                onClick={(e) => e.stopPropagation()}
               />
             ) : (
               <div onClick={() => {

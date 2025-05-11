@@ -1,140 +1,66 @@
 import React, { useState } from 'react';
-import { Layout, Card, Input, Button, Typography, Form, message } from 'antd';
+import { Layout, Card, Input, Button, message, Form } from 'antd';
 import axios from 'axios';
 
 const { Content, Footer } = Layout;
-const { Title } = Typography;
 
 const Login = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState(''); // Para cadastro
-  const [confirmPassword, setConfirmPassword] = useState(''); // Para cadastro
   const [loading, setLoading] = useState(false);
-  const [isLogin, setIsLogin] = useState(true); // Controla se está no modo de login ou cadastro
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      message.warning('Preencha todos os campos.');
+  // Função que valida o e-mail e envia o código de verificação
+  const handleEmailSubmit = async () => {
+    if (!email) {
+      message.warning('Por favor, insira seu e-mail.');
+      return;
+    }
+
+    // Verifica se o e-mail tem o domínio @fcbhealth.com
+    if (!email.endsWith('@fcbhealth.com')) {
+      message.warning('O e-mail deve ser do domínio @fcbhealth.com');
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/login`, {
-        email,
-        password,
-      });
+      // Envia o pedido para o backend para gerar e enviar o código de verificação
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/send-verification-code`, { email });
 
-      const { data } = response;
-
-      if (data.session) {
-        message.success('Login bem-sucedido!');
-        localStorage.setItem('access_token', data.session.access_token);
-        // Redirecionar para a página principal ou dashboard
-        // Exemplo: window.location.href = "/dashboard";
+      if (response.data.success) {
+        message.success('Código de verificação enviado para seu e-mail.');
+      } else {
+        message.error('Erro ao enviar código de verificação.');
       }
     } catch (error) {
-      if (error.response && error.response.data) {
-        message.error(error.response.data.error || 'Erro ao fazer login');
-      } else {
-        message.error('Erro ao fazer login');
-      }
+      message.error('Erro ao enviar código de verificação.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegister = async () => {
-    if (!email || !password || !name || password !== confirmPassword) {
-      message.warning('Preencha todos os campos corretamente.');
-      return;
-    }
-  
-    setLoading(true);
-  
-    try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/register`, {
-        name,
-        email,
-        password,
-      });
-  
-      const { data } = response;
-  
-      if (data.session) {
-        message.success('Cadastro bem-sucedido!');
-        localStorage.setItem('access_token', data.session.access_token);
-        // Redirecionar para a página principal ou dashboard
-        // Exemplo: window.location.href = "/dashboard";
-      }
-    } catch (error) {
-      if (error.response && error.response.data) {
-        message.error(error.response.data.error || 'Erro ao fazer cadastro');
-      } else {
-        message.error('Erro ao fazer cadastro');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-  
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Content style={{ padding: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <Card title={isLogin ? 'Login' : 'Cadastro'} style={{ width: 400 }}>
+        <Card title="Verificação de E-mail" style={{ width: 400 }}>
           <Form layout="vertical">
-            {!isLogin && (
-              <Form.Item label="Nome" required>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Digite seu nome"
-                />
-              </Form.Item>
-            )}
-
-            <Form.Item label="Email" required>
+            <Form.Item label="E-mail" required>
               <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Digite seu email"
+                placeholder="Digite seu e-mail"
               />
-            </Form.Item>
-
-            <Form.Item label="Senha" required>
-              <Input.Password
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Digite sua senha"
-              />
-            </Form.Item>
-
-            {!isLogin && (
-              <Form.Item label="Confirmar Senha" required>
-                <Input.Password
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirme sua senha"
-                />
-              </Form.Item>
-            )}
-
-            <Form.Item>
-              <Button type="primary" block loading={loading} onClick={isLogin ? handleLogin : handleRegister}>
-                {isLogin ? 'Entrar' : 'Cadastrar'}
-              </Button>
             </Form.Item>
 
             <Form.Item>
               <Button
-                type="link"
+                type="primary"
                 block
-                onClick={() => setIsLogin(!isLogin)}
+                loading={loading}
+                onClick={handleEmailSubmit}
               >
-                {isLogin ? 'Ainda não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça login'}
+                Enviar Código
               </Button>
             </Form.Item>
           </Form>

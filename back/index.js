@@ -17,96 +17,6 @@ const BUCKET_NAME = 'images';
 app.use(cors({ origin: process.env.FRONTEND_URL}));
 app.use(express.json());
 
-// Rota para login
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email e senha são obrigatórios.' });
-  }
-
-  try {
-    // Tente usar a função de login do Supabase para autenticação
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      // Se houver erro no login, retorne o erro para o cliente
-      return res.status(401).json({ error: 'Email ou senha incorretos.' });
-    }
-
-    // Se o login for bem-sucedido, retorne a sessão e os dados do usuário
-    res.status(200).json({
-      message: 'Login bem-sucedido!',
-      session: data.session,  // Retorne a sessão aqui
-      user: data.user,        // Retorne os dados do usuário
-    });
-  } catch (error) {
-    console.error('Erro ao autenticar usuário:', error);
-    res.status(500).json({ error: 'Erro interno do servidor.' });
-  }
-});
-
-// Rota de registro
-app.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
-
-  console.log('Body recebido no backend:', req.body);  // Verifique o conteúdo do corpo
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Nome, email e senha são obrigatórios.' });
-  }
-
-  try {
-    // Cria o usuário no Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (error) {
-      console.error('Erro ao criar usuário no Supabase Auth:', error);
-      return res.status(400).json({ error: error.message || 'Erro ao criar usuário no Supabase Auth.' });
-    }
-
-    console.log('Usuário criado no Supabase Auth:', data.user);
-
-    // Cria o registro do usuário na tabela 'users' após o cadastro no Supabase Auth
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert([
-        {
-          id: uuidv4(),            // Gerando UUID para o novo usuário
-          name,
-          email,
-          user_id: data.user.id,   // Referência ao user_id do Supabase Auth
-        },
-      ]);
-
-    if (insertError) {
-      console.error('Erro ao salvar usuário na tabela users:', insertError);
-      return res.status(500).json({ error: 'Erro ao salvar usuário no banco de dados.' });
-    }
-
-    // Se tudo ocorreu bem, envia a resposta de sucesso
-    res.status(201).json({
-      message: 'Cadastro bem-sucedido!',
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        name,
-      },
-      session: data.session,
-    });
-  } catch (error) {
-    console.error('Erro no processo de registro:', error);
-    res.status(500).json({ error: 'Erro interno do servidor.' });
-  }
-});
-
-
 // Configuração do Multer para upload de arquivos
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -116,6 +26,35 @@ const upload = multer({
     cb(null, allowedTypes.includes(file.mimetype));
   }
 });
+
+app.post('/send-verification-code', async (req, res) => {
+  const { email } = req.body;
+
+  // Verifica se o email é válido e termina com @fcbhealth.com
+  if (!email || !email.endsWith('@fcbhealth.com')) {
+    return res.status(400).json({ error: 'E-mail inválido ou não autorizado.' });
+  }
+
+  // Gerar código de verificação de 6 dígitos
+  const code = Math.floor(100000 + Math.random() * 900000);
+
+  // Enviar código de verificação para o e-mail
+  try {
+    await axios.post(`${process.env.FRONTEND_URL}/send-email`, {
+      to: email,
+      html: `<h1>Código de Verificação</h1><p>Seu código de verificação é: <strong>${code}</strong></p>`,
+    });
+
+    // Salvar o código gerado para validação posterior (em banco de dados ou cache)
+    // Exemplo: Salvar o código no banco ou em algum sistema de cache para validação futura.
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Erro ao enviar código de verificação:', error);
+    res.status(500).json({ error: 'Erro ao enviar código de verificação.' });
+  }
+});
+
 
 app.post('/parametrize-url', upload.single('image'), async (req, res) => {
   try {

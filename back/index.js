@@ -136,9 +136,36 @@ app.post('/parametrize-url', upload.single('image'), async (req, res) => {
 });
 
 // Rota para salvar URL na tabela urls_snapbox
-app.post('/save-url', async (req, res) => {
+app.post('/save-url', upload.single('image'), async (req, res) => {
   try {
-    const { name, url, image } = req.body;
+    const { name, url } = req.body;
+    
+    // Se uma imagem foi carregada, fazer o upload para o Supabase Storage
+    let imageUrl = null;
+    if (req.file) {
+      const { originalname, mimetype, buffer } = req.file;
+      const fileExt = originalname.split('.').pop();
+      const fileName = `${uuidv4()}.${fileExt}`;
+      
+      // Fazendo upload da imagem para o Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(`public/${fileName}`, buffer, {
+          contentType: mimetype,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Obtendo URL pública da imagem carregada
+      const { data: { publicUrl } } = supabase.storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(`public/${fileName}`);
+      
+      imageUrl = publicUrl; // Armazena a URL pública da imagem
+    }
 
     // Verifica se os campos obrigatórios estão presentes
     if (!name || !url) {
@@ -156,7 +183,7 @@ app.post('/save-url', async (req, res) => {
           id: id,  // Passando o UUID gerado para o campo id
           name: name,
           url: url,
-          image: image || null,  // Imagem é opcional
+          image: imageUrl || null,  // Armazenando a URL da imagem ou null
         }
       ])
       .select(); // Isso garante que os dados inseridos (incluindo o UUID) sejam retornados
@@ -166,7 +193,7 @@ app.post('/save-url', async (req, res) => {
       return res.status(500).json({ error: 'Erro ao salvar URL no banco de dados' });
     }
 
-    // Retorna os dados inseridos, incluindo o UUID gerado manualmente
+    // Retorna os dados inseridos, incluindo o UUID gerado
     res.status(201).json({
       ...data[0],  // Inclui todos os dados retornados (incluindo o UUID)
       id: id       // Garante que o UUID gerado apareça explicitamente
@@ -176,6 +203,7 @@ app.post('/save-url', async (req, res) => {
     res.status(500).json({ error: 'Erro ao salvar URL' });
   }
 });
+
 
 // Atualizar nome da campanha
 app.put('/urls/:id', async (req, res) => {

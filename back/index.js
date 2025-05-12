@@ -5,17 +5,21 @@ import { v4 as uuidv4 } from 'uuid';
 import nodemailer from 'nodemailer';
 import supabase from './supabase.js';
 import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 
 dotenv.config({ path: '.env.dev' });
 
 const app = express();
-const PORT = process.env.PORT || 3010;
+const PORT = process.env.PORT;
 const BUCKET_NAME = 'images';
+const verificationCodes = new Map(); // Armazena códigos temporariamente (ideal seria usar Redis ou DB com expiração)
+const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key'; 
+
 
 app.use(cors({ origin: process.env.FRONTEND_URL}));
 app.use(express.json());
+
 
 // Configuração do Multer para upload de arquivos
 const upload = multer({
@@ -27,33 +31,96 @@ const upload = multer({
   }
 });
 
+// Rota para verificar código
+app.post('/verify-code', async (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return res.status(400).json({ success: false, error: 'E-mail e código são obrigatórios.' });
+  }
+
+  const storedCode = verificationCodes.get(email);
+
+  if (!storedCode) {
+    return res.status(400).json({ success: false, error: 'Código expirado ou não encontrado.' });
+  }
+
+  if (storedCode !== code) {
+    return res.status(400).json({ success: false, error: 'Código incorreto.' });
+  }
+
+  // Código correto: gerar um JWT
+  verificationCodes.delete(email); // opcional: remover o código para não reutilizar
+
+  // Gerar token JWT
+  const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' }); // O token expira em 1 hora
+
+  return res.status(200).json({ success: true, email, token });
+});
+
+
 app.post('/send-verification-code', async (req, res) => {
   const { email } = req.body;
 
-  // Verifica se o email é válido e termina com @fcbhealth.com
   if (!email || !email.endsWith('@fcbhealth.com')) {
-    return res.status(400).json({ error: 'E-mail inválido ou não autorizado.' });
+    return res.status(400).json({ success: false, error: 'E-mail inválido ou não autorizado' });
   }
 
-  // Gerar código de verificação de 6 dígitos
-  const code = Math.floor(100000 + Math.random() * 900000);
+  // Gera um código de 6 dígitos
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-  // Enviar código de verificação para o e-mail
+  // Armazena temporariamente (ideal seria Redis ou banco com TTL)
+  verificationCodes.set(email, code);
+  setTimeout(() => verificationCodes.delete(email), 5 * 60 * 1000); // expira em 5 minutos
+
   try {
-    await axios.post(`${process.env.FRONTEND_URL}/send-email`, {
-      to: email,
-      html: `<h1>Código de Verificação</h1><p>Seu código de verificação é: <strong>${code}</strong></p>`,
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: Number(process.env.EMAIL_PORT),
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     });
 
-    // Salvar o código gerado para validação posterior (em banco de dados ou cache)
-    // Exemplo: Salvar o código no banco ou em algum sistema de cache para validação futura.
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 40px; text-align: center;">
+        <h2 style="color: #333;">Olá!</h2>
+        <p style="font-size: 16px; color: #555;">
+          Seu código de verificação para acessar o SnapBox é:
+        </p>
+        <div style="margin: 30px 0;">
+          <span style="
+            font-size: 48px;
+            font-weight: bold;
+            color: #2c3e50;
+            background: #ecf0f1;
+            padding: 20px 40px;
+            border-radius: 10px;
+            display: inline-block;
+            letter-spacing: 10px;
+          ">${code}</span>
+        </div>
+        <p style="font-size: 14px; color: #999;">Este código expira em 5 minutos.</p>
+        <hr style="margin-top: 40px;" />
+        <p style="font-size: 12px; color: #ccc;">SnapBox &copy; ${new Date().getFullYear()} | Desenvolvido pela FCB Health</p>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"SnapBox" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Seu código de verificação • SnapBox',
+      html: htmlContent,
+    });
 
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Erro ao enviar código de verificação:', error);
-    res.status(500).json({ error: 'Erro ao enviar código de verificação.' });
+    res.status(500).json({ success: false, error: 'Erro ao enviar e-mail' });
   }
 });
+
 
 
 app.post('/parametrize-url', upload.single('image'), async (req, res) => {
@@ -64,12 +131,8 @@ app.post('/parametrize-url', upload.single('image'), async (req, res) => {
     // Parse a string JSON para objeto
     const paramsObj = JSON.parse(params);
 
-    console.log('Base URL:', baseUrl);
-    console.log('Parâmetros:', paramsObj);
-
     res.json({ parametrizedUrl: baseUrl + '?' + new URLSearchParams(paramsObj).toString() });
   } catch (error) {
-    console.error('Erro ao processar a solicitação:', error);
     res.status(400).json({ error: 'Erro ao parametrizar a URL' });
   }
 });
@@ -128,7 +191,6 @@ app.post('/save-url', upload.single('image'), async (req, res) => {
       .select(); // Isso garante que os dados inseridos (incluindo o UUID) sejam retornados
 
     if (error) {
-      console.error('Erro ao salvar URL no Supabase:', error);
       return res.status(500).json({ error: 'Erro ao salvar URL no banco de dados' });
     }
 
@@ -138,11 +200,9 @@ app.post('/save-url', upload.single('image'), async (req, res) => {
       id: id       // Garante que o UUID gerado apareça explicitamente
     });
   } catch (error) {
-    console.error('Erro ao salvar URL:', error);
     res.status(500).json({ error: 'Erro ao salvar URL' });
   }
 });
-
 
 // Atualizar nome da campanha
 app.put('/urls/:id', async (req, res) => {
@@ -161,13 +221,11 @@ app.put('/urls/:id', async (req, res) => {
       .select();
 
     if (error) {
-      console.error('Erro ao atualizar nome:', error);
       return res.status(500).json({ error: 'Erro ao atualizar nome da campanha.' });
     }
 
     res.status(200).json(data[0]);
   } catch (err) {
-    console.error('Erro:', err);
     res.status(500).json({ error: 'Erro interno do servidor.' });
   }
 });
@@ -182,13 +240,11 @@ app.get('/urls', async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Erro ao buscar URLs salvas:', error);
       return res.status(500).json({ error: 'Erro ao buscar URLs' });
     }
 
     res.status(200).json(data);
   } catch (err) {
-    console.error('Erro geral ao buscar URLs:', err);
     res.status(500).json({ error: 'Erro ao buscar URLs' });
   }
 });
@@ -204,7 +260,6 @@ app.delete('/urls/:id', async (req, res) => {
     .eq('id', id);
 
   if (error) {
-    console.error('Erro ao excluir URL:', error);
     return res.status(500).json({ error: 'Erro ao excluir a URL' });
   }
 
@@ -251,8 +306,6 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     .from(BUCKET_NAME)
     .getPublicUrl(`public/${fileName}`);
 
-    console.log('URL pública do arquivo:', publicUrl);  // Log da URL gerada
-
     // Inserindo no banco de dados
     const { data, error: dbError } = await supabase
       .from('uploads')
@@ -269,7 +322,6 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
     res.status(201).json(data[0]);
   } catch (error) {
-    console.error('Upload error:', error);
     res.status(500).json({ error: error.message || 'Erro ao fazer upload' });
   }
 });
@@ -295,7 +347,6 @@ app.delete('/files/:id', async (req, res) => {
 
     res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Delete error:', error);
     res.status(500).json({ error: error.message || 'Erro ao excluir arquivo' });
   }
 });
@@ -328,7 +379,6 @@ app.post('/send-email', async (req, res) => {
 
     res.status(200).json({ success: true, messageId: info.messageId });
   } catch (error) {
-    console.error('Erro ao enviar email:', error);
     res.status(500).json({ error: 'Erro ao enviar e-mail' });
   }
 });

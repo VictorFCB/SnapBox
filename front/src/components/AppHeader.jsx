@@ -1,53 +1,82 @@
 import React from 'react';
-import { Layout, Typography, Menu, Row, Col } from 'antd';
-import { Link, useLocation } from 'react-router-dom';
+import {
+  Layout,
+  Typography,
+  Row,
+  Col,
+  Avatar,
+  Space,
+  Popconfirm,
+  Tooltip
+} from 'antd';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LogoutOutlined } from '@ant-design/icons';
 
 const { Header } = Layout;
 const { Title } = Typography;
 
 const AppHeader = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const userEmail = localStorage.getItem('auth_email');
+  const userInitials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : '';
 
-  const getMenuKey = () => {
-    if (location.pathname === '/') return 'login';
-    if (location.pathname === '/Home') return 'home';
-    if (location.pathname.startsWith('/Email')) return 'send';
-    if (location.pathname.startsWith('/UrlParametrizer')) return 'Parametrizer';
-    return '';
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_email');
+    navigate('/');
   };
+
+  const isActive = (path) => location.pathname.startsWith(path);
+
+  const linkStyle = (path) => ({
+    color: '#fff', 
+    fontWeight: 'bold',
+    textDecoration: 'none',
+    paddingBottom: '2px', 
+    borderBottom: isActive(path) ? '2px solid #fff' : 'none',
+    transition: 'border-bottom 0.3s ease'
+  });
 
   return (
     <Header
       style={{
-        background: '#001529',
-        padding: '0 24px',
+        background: 'linear-gradient(90deg, #00AEEF, #1B5CFF, #7D2E61, #ED0F69, #ED3D24, #FFD600)',
+        padding: '0 40px',
         position: 'fixed',
         width: '100%',
         top: 0,
-        zIndex: 1000,
+        zIndex: 1000
       }}
     >
-      <Row justify="space-between" align="middle">
+      <Row justify="space-between" align="middle" style={{ width: '100%' }}>
         <Col>
-          <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>
-            <Title level={3} style={{ color: '#fff', margin: 0 }}>
-              SnapBox
-            </Title>
+          <Link to="/" style={{ color: '#fff', textDecoration: 'none' }}>
+            <Title level={4} style={{ margin: 0, color: '#fff' }}>SnapBox</Title>
           </Link>
         </Col>
 
-        <Col>
-          <Menu theme="dark" mode="horizontal" selectedKeys={[getMenuKey()]}>
-            <Menu.Item key="home">
-              <Link to="/Home">Home</Link>
-            </Menu.Item>
-            <Menu.Item key="send">
-              <Link to="/Email">Send</Link>
-            </Menu.Item>
-            <Menu.Item key="Parametrizer">
-              <Link to="/UrlParametrizer">Parametrizer</Link>
-            </Menu.Item>
-          </Menu>
+        <Col flex="auto">
+          <Row justify="end" align="middle" gutter={24} wrap={false}>
+            <Space size="large">
+              <Link to="/Home" style={linkStyle('/Home')}>Home</Link>
+              <Link to="/Email" style={linkStyle('/Email')}>Send</Link>
+              <Link to="/UrlParametrizer" style={linkStyle('/UrlParametrizer')}>Parametrizer</Link>
+            </Space>
+
+            {userEmail && (
+              <Space size="middle" align="center" style={{ marginLeft: 24 }}>
+                <Tooltip title={userEmail}>
+                  <Avatar size="small" style={{ backgroundColor: '#7D2E61', fontSize: 15 }}>{userInitials}</Avatar>
+                </Tooltip>
+                <Popconfirm title="Deseja realmente sair?" onConfirm={handleLogout} okText="Sim" cancelText="Não">
+                  <span style={{ cursor: 'pointer', color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' }}>
+                    <LogoutOutlined />
+                  </span>
+                </Popconfirm>
+              </Space>
+            )}
+          </Row>
         </Col>
       </Row>
     </Header>

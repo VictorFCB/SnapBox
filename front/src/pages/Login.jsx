@@ -57,25 +57,30 @@ const Login = () => {
       message.warning('Por favor, insira o código de verificação.');
       return;
     }
-
+  
     setLoading(true);
-
+  
     try {
       const response = await axios.post(`${process.env.REACT_APP_API_URL}/verify-code`, {
         email,
         code
       });
-
+  
       if (response.data.success) {
         message.success('Código verificado com sucesso!');
-        const { token } = response.data;
-
+        const { token, isAdmin } = response.data;
+  
         // Salvar o token JWT e o e-mail do usuário no localStorage
         localStorage.setItem('auth_token', token);
         localStorage.setItem('auth_email', email);
-
-        // Redirecionar para o Home ou outra página
-        navigate('/Home');
+        localStorage.setItem('is_admin', isAdmin);  // Salvar se é admin
+  
+        // Redirecionar para o Home ou Admin dependendo do tipo de usuário
+        if (isAdmin) {
+          navigate('/Admin');
+        } else {
+          navigate('/Home');
+        }
       } else {
         message.error('Código inválido. Tente novamente.');
       }
@@ -85,6 +90,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+  
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

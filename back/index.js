@@ -10,6 +10,7 @@ import cron from 'node-cron';
 import moment from 'moment-timezone';
 
 
+
 dotenv.config({ path: '.env.dev' });
 
 const app = express();
@@ -50,6 +51,28 @@ const upload = multer({
     cb(null, allowedTypes.includes(file.mimetype));
   }
 });
+
+// Rota para adicionar um admin
+app.post('/add-admin', async (req, res) => {
+  const { email } = req.body;
+
+  // Valida se o e-mail termina com @fcbhealth.com
+  if (!email.endsWith('@fcbhealth.com')) {
+    return res.status(400).json({ error: 'E-mail deve ser da organização (@fcbhealth.com)' });
+  }
+
+  // Inserir o e-mail na tabela admins
+  const { data, error } = await supabase
+    .from('admins')
+    .insert([{ email }]);
+
+  if (error) {
+    return res.status(500).json({ error: 'Erro ao adicionar administrador' });
+  }
+
+  res.status(200).json({ success: true, data });
+});
+
 
 app.post('/logout', async (req, res) => {
   const { email, most_viewed_path } = req.body;
@@ -132,6 +155,7 @@ app.post('/verify-code', async (req, res) => {
       });
     }
 
+    // Verifica se o código de verificação enviado é válido
     const storedCode = verificationCodes.get(email);
 
     if (!storedCode) {
@@ -151,10 +175,25 @@ app.post('/verify-code', async (req, res) => {
     // Código correto, remover código armazenado
     verificationCodes.delete(email);
 
-    // Gerar token JWT
-    const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+    // Verificar se o e-mail pertence a um admin
+    const { data: adminData, error: adminError } = await supabase
+      .from('admins')
+      .select('email')
+      .eq('email', email);
 
-    // Registrar atividade de login
+    if (adminError) {
+      return res.status(500).json({
+        success: false,
+        error: 'Erro ao verificar admin.'
+      });
+    }
+
+    const isAdmin = adminData.length > 0; // Se o e-mail está na tabela de admins
+
+    // Gerar token JWT, incluindo o campo isAdmin
+    const token = jwt.sign({ email, isAdmin }, JWT_SECRET, { expiresIn: '1h' });
+
+    // Registrar a atividade de login
     const loginTime = moment().tz('America/Sao_Paulo').format();
 
     const { error: dbError } = await supabase
@@ -169,8 +208,8 @@ app.post('/verify-code', async (req, res) => {
       });
     }
 
-    // Resposta de sucesso
-    return res.status(200).json({ success: true, email, token });
+    // Resposta de sucesso com o token e o status de admin
+    return res.status(200).json({ success: true, email, token, isAdmin });
 
   } catch (err) {
     console.error('Erro no endpoint /verify-code:', err);
@@ -180,6 +219,7 @@ app.post('/verify-code', async (req, res) => {
     });
   }
 });
+
 
 app.post('/send-verification-code', async (req, res) => {
   const { email } = req.body;

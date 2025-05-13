@@ -1,14 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import moment from 'moment-timezone';
-import {
-  Card,
-  Col,
-  Row,
-  Statistic,
-  Typography,
-  Table,
-  message
-} from 'antd';
+import { Input, Button, message, Card, Col, Row, Statistic, Typography, Table, Modal } from 'antd';
+import { PlusOutlined } from '@ant-design/icons'; // Ícone de mais
 import axios from 'axios';
 import { Pie } from 'react-chartjs-2';
 import {
@@ -31,6 +23,9 @@ const Admin = () => {
     user_logs: [],
   });
 
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [isModalVisible, setIsModalVisible] = useState(false); // Estado para controlar visibilidade do Modal
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -47,14 +42,45 @@ const Admin = () => {
 
   const { total_users, online_users, user_logs } = stats;
 
-  // Agrupar tempo total de sessão por e-mail
+  // Função para abrir o modal
+  const showModal = () => {
+    setIsModalVisible(true);
+  };
+
+  // Função para fechar o modal
+  const handleCancel = () => {
+    setIsModalVisible(false);
+  };
+
+  // Função para adicionar o novo admin
+  const handleAddAdmin = async () => {
+    if (!newAdminEmail || !validateEmail(newAdminEmail)) {
+      message.error('Por favor, insira um e-mail válido.');
+      return;
+    }
+
+    try {
+      const response = await axios.post(`${process.env.REACT_APP_API_URL}/add-admin`, { email: newAdminEmail });
+      message.success(response.data.message);
+      setNewAdminEmail('');
+      setIsModalVisible(false); // Fechar o modal após sucesso
+    } catch (error) {
+      console.error('Erro ao adicionar admin:', error);
+      message.error('Erro ao adicionar o novo administrador.');
+    }
+  };
+
+  const validateEmail = (email) => {
+    const regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return regex.test(email);
+  };
+
   const sessionMap = user_logs.reduce((acc, log) => {
     if (!log.email) return acc;
     acc[log.email] = (acc[log.email] || 0) + (log.session_duration_minutes || 0);
     return acc;
   }, {});
 
-  // Gerar gráfico para todos os usuários autenticados
   const allUsers = Object.entries(sessionMap).sort((a, b) => b[1] - a[1]);
 
   const pieChartData = {
@@ -84,13 +110,11 @@ const Admin = () => {
     },
   };
 
-  // Top 3 usuários mais ativos
   const topUsers = allUsers.slice(0, 3);
 
   const formatDateTime = (value) => {
     if (!value) return '—';
     const date = new Date(value);
-    // Ajusta para o fuso horário de São Paulo (UTC-3)
     const offset = -3 * 60; // -3 horas em minutos
     const localTime = date.getTime();
     const utcTime = localTime + (date.getTimezoneOffset() * 60000);
@@ -135,7 +159,20 @@ const Admin = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={2}>Painel de Administração</Title>
+      {/* Título do painel de administração com o botão de adicionar admin */}
+      <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
+        <Col>
+          <Title level={2}>Painel de Administração</Title>
+        </Col>
+        <Col>
+          <Button
+            type="text"
+            icon={<PlusOutlined />}
+            onClick={showModal}
+            style={{ fontSize: 18 }}
+          />
+        </Col>
+      </Row>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={8}>
@@ -162,6 +199,28 @@ const Admin = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Modal para adicionar o administrador */}
+      <Modal
+        title="Adicionar Novo Administrador"
+        visible={isModalVisible}
+        onCancel={handleCancel}
+        footer={null}
+      >
+        <Input
+          placeholder="Digite o e-mail do novo administrador"
+          value={newAdminEmail}
+          onChange={(e) => setNewAdminEmail(e.target.value)}
+          style={{ marginBottom: 8 }}
+        />
+        <Button 
+          type="primary" 
+          onClick={handleAddAdmin} 
+          block
+        >
+          Adicionar
+        </Button>
+      </Modal>
 
       <Card title="Tempo de Sessão por Usuário (Total)" style={{ marginBottom: 24, height: 320 }}>
         <div style={{ height: 240 }}>

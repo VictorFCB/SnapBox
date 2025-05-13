@@ -6,9 +6,21 @@ import UrlParametrizer from '../pages/UrlParametrizer';
 import Login from '../pages/Login';
 import Admin from '../pages/Admin';
 
+// Componente de rota protegida para verificar se o usuário é admin
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem('auth_token');
-  return isAuthenticated ? children : <Navigate to="/" />;
+  const isAdmin = localStorage.getItem('is_admin');  // Verifica se o usuário é admin
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/" />; // Redireciona para login caso não esteja autenticado
+  }
+
+  if (children.type === Admin && isAdmin !== 'true') {
+    // Se a rota for para Admin e o usuário não for admin, redireciona para Home
+    return <Navigate to="/Home" />;
+  }
+
+  return children;
 };
 
 function AppRoutes() {
@@ -18,7 +30,7 @@ function AppRoutes() {
       <Route path="/Home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
       <Route path="/Email" element={<ProtectedRoute><Email /></ProtectedRoute>} />
       <Route path="/UrlParametrizer" element={<ProtectedRoute><UrlParametrizer /></ProtectedRoute>} />
-      <Route path="/Admin" element={<Admin />} />
+      <Route path="/Admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
     </Routes>
   );
 }

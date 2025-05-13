@@ -49,7 +49,8 @@ const AppHeader = () => {
     }
   
     // Limpa o storage
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_token');  
+    localStorage.removeItem('is_admin');
     localStorage.removeItem('auth_email');
     localStorage.removeItem('visited_paths');
     

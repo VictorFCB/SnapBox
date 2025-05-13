@@ -11,6 +11,7 @@ import {
 } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogoutOutlined } from '@ant-design/icons';
+import axios from 'axios';
 
 const { Header } = Layout;
 const { Title } = Typography;
@@ -21,11 +22,31 @@ const AppHeader = () => {
   const userEmail = localStorage.getItem('auth_email');
   const userInitials = userEmail ? userEmail.split('@')[0].slice(0, 2).toUpperCase() : '';
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const email = localStorage.getItem('auth_email');
+  
+    // Captura os caminhos visitados
+    const visitedPaths = JSON.parse(localStorage.getItem('visited_paths')) || {};
+    const mostVisited = Object.entries(visitedPaths)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || '/';
+  
+    try {
+      await axios.post(`${process.env.REACT_APP_API_URL}/logout`, {
+        email,
+        most_viewed_path: mostVisited,
+      });
+    } catch (error) {
+      console.error('Erro ao registrar logout:', error);
+    }
+  
+    // Limpa o storage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_email');
+    localStorage.removeItem('visited_paths');
+    
     navigate('/');
   };
+  
 
   const isActive = (path) => location.pathname.startsWith(path);
 

@@ -4,6 +4,7 @@ import Home from '../pages/Home';
 import Email from '../pages/Email';
 import UrlParametrizer from '../pages/UrlParametrizer';
 import Login from '../pages/Login';
+import Admin from '../pages/Admin';
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem('auth_token');
@@ -17,6 +18,7 @@ function AppRoutes() {
       <Route path="/Home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
       <Route path="/Email" element={<ProtectedRoute><Email /></ProtectedRoute>} />
       <Route path="/UrlParametrizer" element={<ProtectedRoute><UrlParametrizer /></ProtectedRoute>} />
+      <Route path="/Admin" element={<Admin />} />
     </Routes>
   );
 }

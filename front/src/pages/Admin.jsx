@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import moment from 'moment-timezone';
 import {
   Card,
   Col,
@@ -89,7 +90,14 @@ const Admin = () => {
   const formatDateTime = (value) => {
     if (!value) return '—';
     const date = new Date(value);
-    return date.toLocaleString('pt-BR', {
+    // Ajusta para o fuso horário de São Paulo (UTC-3)
+    const offset = -3 * 60; // -3 horas em minutos
+    const localTime = date.getTime();
+    const utcTime = localTime + (date.getTimezoneOffset() * 60000);
+    const adjustedTime = utcTime + (offset * 60000);
+    const adjustedDate = new Date(adjustedTime);
+    
+    return adjustedDate.toLocaleString('pt-BR', {
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import AppHeader from './components/AppHeader';
 import AppRoutes from './router/AppRouter';
-import { BrowserRouter, useLocation } from 'react-router-dom'; 
+import { BrowserRouter, useLocation } from 'react-router-dom';
 
 const RouteTracker = () => {
   const location = useLocation();
@@ -9,9 +9,9 @@ const RouteTracker = () => {
   useEffect(() => {
     const path = location.pathname;
     const pathCounts = JSON.parse(localStorage.getItem('visited_paths')) || {};
-
+    
     pathCounts[path] = (pathCounts[path] || 0) + 1;
-
+    
     localStorage.setItem('visited_paths', JSON.stringify(pathCounts));
   }, [location]);
 

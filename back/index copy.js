@@ -6,8 +6,6 @@ import nodemailer from 'nodemailer';
 import supabase from './supabase.js';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
-import cron from 'node-cron';
-import moment from 'moment-timezone';
 
 
 dotenv.config({ path: '.env.dev' });
@@ -16,29 +14,11 @@ const app = express();
 const PORT = process.env.PORT;
 const BUCKET_NAME = 'images';
 const verificationCodes = new Map(); // Armazena códigos temporariamente (ideal seria usar Redis ou DB com expiração)
-const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key'; 
 
 
-app.use(cors({ origin: process.env.FRONTEND_URL }));
+app.use(cors({ origin: process.env.FRONTEND_URL}));
 app.use(express.json());
-
-// Definir a cron job para rodar todos os dias à meia-noite (00:00)
-cron.schedule('0 0 * * *', async () => {
-  try {
-    const { error } = await supabase
-      .from('user_activity')
-      .delete()
-      .lt('login_time', new Date().toISOString());
-
-    if (error) {
-      console.error('Erro ao apagar os dados de user_activity:', error.message);
-    } else {
-      console.log('Dados de user_activity apagados com sucesso.');
-    }
-  } catch (err) {
-    console.error('Erro ao agendar a tarefa de limpeza:', err);
-  }
-});
 
 
 // Configuração do Multer para upload de arquivos
@@ -51,135 +31,33 @@ const upload = multer({
   }
 });
 
-app.post('/logout', async (req, res) => {
-  const { email, most_viewed_path } = req.body;
-
-  const { data: lastSession, error } = await supabase
-    .from('user_activity')
-    .select('*')
-    .eq('email', email)
-    .order('login_time', { ascending: false })
-    .limit(1);
-
-  if (error || !lastSession.length) {
-    return res.status(404).json({ error: 'Sessão não encontrada.' });
-  }
-
-  const logoutTime = moment().tz('America/Sao_Paulo').format();
-  const loginTime = moment(lastSession[0].login_time).tz('America/Sao_Paulo');
-  const sessionDuration = Math.floor((moment(logoutTime) - loginTime) / 1000);
-
-  const { error: updateError } = await supabase
-    .from('user_activity')
-    .update({
-      logout_time: logoutTime,
-      session_duration: sessionDuration,
-      most_viewed_path: most_viewed_path || '/', // Garante um valor padrão
-    })
-    .eq('id', lastSession[0].id);
-
-  if (updateError) return res.status(500).json({ error: 'Erro ao atualizar sessão.' });
-
-  return res.json({ success: true });
-});
-
-app.get('/admin-stats', async (req, res) => {
-  const { data, error } = await supabase
-    .from('user_activity')
-    .select('*');
-
-  if (error) return res.status(500).json({ error: 'Erro ao buscar atividades' });
-
-  const onlineUsers = data.filter(user => !user.logout_time).length;
-  const totalUsers = new Set(data.map(u => u.email)).size;
-
-  const sessionByUser = data.reduce((acc, curr) => {
-    acc[curr.email] = (acc[curr.email] || 0) + (curr.session_duration || 0);
-    return acc;
-  }, {});
-
-  const mostActiveUser = Object.entries(sessionByUser).sort((a, b) => b[1] - a[1])[0];
-
-  const enriched = data.map(log => {
-    return {
-      ...log,
-      session_duration_minutes: Math.floor((log.session_duration || 0) / 60),
-      // Garante que most_viewed_path seja incluído mesmo se for null
-      most_viewed_path: log.most_viewed_path || null
-    };
-  });
-
-  res.json({
-    total_users: totalUsers,
-    online_users: onlineUsers,
-    most_active_user: {
-      email: mostActiveUser?.[0] || '',
-      session_duration_minutes: Math.floor((mostActiveUser?.[1] || 0) / 60),
-    },
-    user_logs: enriched,
-  });
-});
-
 // Rota para verificar código
 app.post('/verify-code', async (req, res) => {
-  try {
-    const { email, code } = req.body;
+  const { email, code } = req.body;
 
-    if (!email || !code) {
-      return res.status(400).json({
-        success: false,
-        error: 'E-mail e código são obrigatórios.'
-      });
-    }
-
-    const storedCode = verificationCodes.get(email);
-
-    if (!storedCode) {
-      return res.status(400).json({
-        success: false,
-        error: 'Código expirado ou não encontrado.'
-      });
-    }
-
-    if (storedCode !== code) {
-      return res.status(400).json({
-        success: false,
-        error: 'Código incorreto.'
-      });
-    }
-
-    // Código correto, remover código armazenado
-    verificationCodes.delete(email);
-
-    // Gerar token JWT
-    const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
-
-    // Registrar atividade de login
-    const loginTime = moment().tz('America/Sao_Paulo').format();
-
-    const { error: dbError } = await supabase
-      .from('user_activity')
-      .insert([{ email, login_time: loginTime }]);
-
-    if (dbError) {
-      console.error('Erro ao registrar login no Supabase:', dbError.message);
-      return res.status(500).json({
-        success: false,
-        error: 'Erro ao registrar atividade de login.'
-      });
-    }
-
-    // Resposta de sucesso
-    return res.status(200).json({ success: true, email, token });
-
-  } catch (err) {
-    console.error('Erro no endpoint /verify-code:', err);
-    return res.status(500).json({
-      success: false,
-      error: 'Erro interno do servidor.'
-    });
+  if (!email || !code) {
+    return res.status(400).json({ success: false, error: 'E-mail e código são obrigatórios.' });
   }
+
+  const storedCode = verificationCodes.get(email);
+
+  if (!storedCode) {
+    return res.status(400).json({ success: false, error: 'Código expirado ou não encontrado.' });
+  }
+
+  if (storedCode !== code) {
+    return res.status(400).json({ success: false, error: 'Código incorreto.' });
+  }
+
+  // Código correto: gerar um JWT
+  verificationCodes.delete(email); // opcional: remover o código para não reutilizar
+
+  // Gerar token JWT
+  const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' }); // O token expira em 1 hora
+
+  return res.status(200).json({ success: true, email, token });
 });
+
 
 app.post('/send-verification-code', async (req, res) => {
   const { email } = req.body;
@@ -243,6 +121,8 @@ app.post('/send-verification-code', async (req, res) => {
   }
 });
 
+
+
 app.post('/parametrize-url', upload.single('image'), async (req, res) => {
   try {
     // Receber a URL base e os parâmetros
@@ -261,14 +141,14 @@ app.post('/parametrize-url', upload.single('image'), async (req, res) => {
 app.post('/save-url', upload.single('image'), async (req, res) => {
   try {
     const { name, url } = req.body;
-
+    
     // Se uma imagem foi carregada, fazer o upload para o Supabase Storage
     let imageUrl = null;
     if (req.file) {
       const { originalname, mimetype, buffer } = req.file;
       const fileExt = originalname.split('.').pop();
       const fileName = `${uuidv4()}.${fileExt}`;
-
+      
       // Fazendo upload da imagem para o Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
@@ -285,7 +165,7 @@ app.post('/save-url', upload.single('image'), async (req, res) => {
       const { data: { publicUrl } } = supabase.storage
         .from(BUCKET_NAME)
         .getPublicUrl(`public/${fileName}`);
-
+      
       imageUrl = publicUrl; // Armazena a URL pública da imagem
     }
 
@@ -324,6 +204,7 @@ app.post('/save-url', upload.single('image'), async (req, res) => {
   }
 });
 
+
 // Atualizar nome da campanha
 app.put('/urls/:id', async (req, res) => {
   const { id } = req.params;
@@ -350,6 +231,7 @@ app.put('/urls/:id', async (req, res) => {
   }
 });
 
+
 // Rota para buscar URLs salvas
 app.get('/urls', async (req, res) => {
   try {
@@ -367,6 +249,7 @@ app.get('/urls', async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar URLs' });
   }
 });
+
 
 // Rota para deletar uma URL salva
 app.delete('/urls/:id', async (req, res) => {
@@ -421,8 +304,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
     // Obtendo URL pública do arquivo
     const { data: { publicUrl } } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(`public/${fileName}`);
+    .from(BUCKET_NAME)
+    .getPublicUrl(`public/${fileName}`);
 
     // Inserindo no banco de dados
     const { data, error: dbError } = await supabase
